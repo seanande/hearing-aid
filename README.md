@@ -1,2 +1,3 @@
-# hearing-aid
-Directional hearing aid for group 2 of 18-500
+# Adafruit Zero PDM Library
+
+PDM microphone library for the Arduino Zero / Adafruit Feather M0 (SAMD21 processor).
