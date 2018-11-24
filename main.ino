@@ -8,18 +8,20 @@ AudioRecordQueue   queue1;
 AudioPlaySdRaw     playRaw;
 AudioInputI2SQuad  i2s_quad_in; 
 AudioOutputI2SQuad i2s_quad_out;
- 
-AudioFilterFIR   fir1;
+AudioMixer4 mixer1;
 
-AudioConnection patchCord0(i2s_quad_in, 0, queue1, 0);
-
-AudioConnection  patchCord1(i2s_quad_in, 0, i2s_quad_out, 0);
-AudioConnection  patchCord2(i2s_quad_in, 1, i2s_quad_out, 1);
-AudioConnection  patchCord3(i2s_quad_in, 2, i2s_quad_out, 2);
-AudioConnection  patchCord4(i2s_quad_in, 3, i2s_quad_out, 3);
-
+AudioConnection patchCord0(i2s_quad_in, 0, mixer1, 0);
+AudioConnection patchCord1(i2s_quad_in, 1, mixer1, 1);
+AudioConnection patchCord2(i2s_quad_in, 2, mixer1, 2);
+AudioConnection patchCord3(i2s_quad_in, 3, mixer1, 3);
+AudioConnection patchCord4(mixer1, queue1);
+AudioConnection  patchCord5(mixer1, 0, i2s_quad_out, 0);
+AudioConnection  patchCord6(mixer1, 0, i2s_quad_out, 1);
+AudioConnection  patchCord7(mixer1, 0, i2s_quad_out, 2);
+AudioConnection  patchCord8(mixer1, 0, i2s_quad_out, 3);
 
 AudioControlSGTL5000     sgtl5000_1;
+AudioControlSGTL5000     sgtl5000_2;
 
 //SD card pins for built in SD card on Teensy
 #define SDCARD_CS_PIN    BUILTIN_SDCARD
@@ -42,15 +44,6 @@ File frec;
 void setup() {
   AudioMemory(128);
   Serial.println("Hello");
-
-  /*
-  // set up 2 MHz clock on pin 9
-  pinMode(CLK_PIN, OUTPUT);
-  analogWriteFrequency(CLK_PIN, MCLK_FREQ);
-  analogWrite(CLK_PIN, 128);
-  Serial.println("started output clock");
-  */
-
   
   // Initialize the SD card
   SPI.setMOSI(SDCARD_MOSI_PIN);
@@ -59,18 +52,30 @@ void setup() {
   if (!(SD.begin(SDCARD_CS_PIN))) {
     // stop here if no SD card, but print a message
     Serial.println("couldn't find SD");
+    
   }
   Serial.println("initialized SD card");
   
   
   // Initialize volume control
   const int myInput = AUDIO_INPUT_MIC;
-  Serial.println('0');
+  sgtl5000_1.setAddress(LOW);
   sgtl5000_1.enable();
-  Serial.println('1');
   sgtl5000_1.inputSelect(myInput);
-  Serial.println('2');
   sgtl5000_1.volume(0.5);
+
+  // Enable the second audio shield, select input, and enable output
+  sgtl5000_2.setAddress(HIGH);
+  sgtl5000_2.enable();
+  sgtl5000_2.inputSelect(myInput);
+  sgtl5000_2.volume(0.5);
+
+
+  mixer1.gain(0, 0.25);
+  mixer1.gain(1, 0.25);
+  mixer1.gain(2, 0.25);
+  mixer1.gain(3, 0.25);
+  
   Serial.println("initialized sgt");
 }
 
@@ -139,9 +144,10 @@ void loop() {
   // play 5 second sample
   Serial.println("beginning playing");
   playRaw.play("RECORD.RAW");
-  while(playRaw.isPlaying()) {
-    
+  time_start = millis();
+  while(millis() - time_start < 5000) {
+  
   }
-  Serial.println("stopping playing");
+  Serial.println("stopping playing after 5 seconds");
   playRaw.stop();
 }
