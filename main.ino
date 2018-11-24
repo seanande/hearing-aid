@@ -11,10 +11,12 @@ AudioOutputI2SQuad i2s_quad_out;
  
 AudioFilterFIR   fir1;
 
+AudioConnection patchCord0(i2s_quad_in, 0, queue1, 0);
+
 AudioConnection  patchCord1(i2s_quad_in, 0, i2s_quad_out, 0);
 AudioConnection  patchCord2(i2s_quad_in, 1, i2s_quad_out, 1);
-AudioConnection  patchCord1(i2s_quad_in, 2, i2s_quad_out, 2);
-AudioConnection  patchCord2(i2s_quad_in, 3, i2s_quad_out, 3);
+AudioConnection  patchCord3(i2s_quad_in, 2, i2s_quad_out, 2);
+AudioConnection  patchCord4(i2s_quad_in, 3, i2s_quad_out, 3);
 
 
 AudioControlSGTL5000     sgtl5000_1;
@@ -38,6 +40,7 @@ long time_start = 0;
 File frec;
 
 void setup() {
+  AudioMemory(128);
   Serial.println("Hello");
 
   /*
@@ -82,7 +85,8 @@ void loop() {
   frec = SD.open("RECORD.RAW", FILE_WRITE);
   if (frec) {
     Serial.println("Beginning recording");
-    i2s_quad_in.begin();
+//    i2s_quad_in.begin();
+    queue1.begin();
   }
   else {
     Serial.println("could not begin recording");
@@ -94,18 +98,19 @@ void loop() {
   Serial.println("beginning recording");
   while(millis() - time_start < 5000) {
     if (queue1.available() >= 2) {
-      byte buffer[512];
+      Serial.println("Available");
+      byte buf[512];
       // Fetch 2 blocks from the audio library and copy
       // into a 512 byte buffer.  The Arduino SD library
       // is most efficient when full 512 byte sector size
       // writes are used.
-      memcpy(buffer, queue1.readBuffer(), 256);
+      memcpy(buf, queue1.readBuffer(), 256);
       queue1.freeBuffer();
-      memcpy(buffer+256, queue1.readBuffer(), 256);
+      memcpy(buf+256, queue1.readBuffer(), 256);
       queue1.freeBuffer();
       // write all 512 bytes to the SD card
       //elapsedMicros usec = 0;
-      frec.write(buffer, 512);
+      frec.write(buf, 512);
       // Uncomment these lines to see how long SD writes
       // are taking.  A pair of audio blocks arrives every
       // 5802 microseconds, so hopefully most of the writes
@@ -116,8 +121,8 @@ void loop() {
       // approximately 301700 us of audio, to allow time
       // for occasional high SD card latency, as long as
       // the average write time is under 5802 us.
-      //Serial.print("SD write, us=");
-      //Serial.println(usec);
+      Serial.print("SD write\n"); //, us=");
+//      Serial.println(usec);
     }
   }
 
@@ -135,7 +140,7 @@ void loop() {
   Serial.println("beginning playing");
   playRaw.play("RECORD.RAW");
   while(playRaw.isPlaying()) {
-    Serial.println("playing raw file");
+    
   }
   Serial.println("stopping playing");
   playRaw.stop();
