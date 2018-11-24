@@ -8,16 +8,20 @@ AudioRecordQueue   queue1;
 AudioPlaySdRaw     playRaw;
 AudioInputI2SQuad  i2s_quad_in; 
 AudioOutputI2SQuad i2s_quad_out;
- 
-AudioFilterFIR   fir1;
+AudioMixer4 mixer1;
 
-AudioConnection  patchCord1(i2s_quad_in, 0, i2s_quad_out, 0);
-AudioConnection  patchCord2(i2s_quad_in, 1, i2s_quad_out, 1);
-AudioConnection  patchCord1(i2s_quad_in, 2, i2s_quad_out, 2);
-AudioConnection  patchCord2(i2s_quad_in, 3, i2s_quad_out, 3);
-
+AudioConnection patchCord0(i2s_quad_in, 0, mixer1, 0);
+AudioConnection patchCord1(i2s_quad_in, 1, mixer1, 1);
+AudioConnection patchCord2(i2s_quad_in, 2, mixer1, 2);
+AudioConnection patchCord3(i2s_quad_in, 3, mixer1, 3);
+AudioConnection patchCord4(mixer1, queue1);
+AudioConnection  patchCord5(mixer1, 0, i2s_quad_out, 0);
+AudioConnection  patchCord6(mixer1, 0, i2s_quad_out, 1);
+AudioConnection  patchCord7(mixer1, 0, i2s_quad_out, 2);
+AudioConnection  patchCord8(mixer1, 0, i2s_quad_out, 3);
 
 AudioControlSGTL5000     sgtl5000_1;
+AudioControlSGTL5000     sgtl5000_2;
 
 //SD card pins for built in SD card on Teensy
 #define SDCARD_CS_PIN    BUILTIN_SDCARD
@@ -38,16 +42,8 @@ long time_start = 0;
 File frec;
 
 void setup() {
+  AudioMemory(128);
   Serial.println("Hello");
-
-  /*
-  // set up 2 MHz clock on pin 9
-  pinMode(CLK_PIN, OUTPUT);
-  analogWriteFrequency(CLK_PIN, MCLK_FREQ);
-  analogWrite(CLK_PIN, 128);
-  Serial.println("started output clock");
-  */
-
   
   // Initialize the SD card
   SPI.setMOSI(SDCARD_MOSI_PIN);
@@ -56,18 +52,30 @@ void setup() {
   if (!(SD.begin(SDCARD_CS_PIN))) {
     // stop here if no SD card, but print a message
     Serial.println("couldn't find SD");
+    
   }
   Serial.println("initialized SD card");
   
   
   // Initialize volume control
   const int myInput = AUDIO_INPUT_MIC;
-  Serial.println('0');
+  sgtl5000_1.setAddress(LOW);
   sgtl5000_1.enable();
-  Serial.println('1');
   sgtl5000_1.inputSelect(myInput);
-  Serial.println('2');
   sgtl5000_1.volume(0.5);
+
+  // Enable the second audio shield, select input, and enable output
+  sgtl5000_2.setAddress(HIGH);
+  sgtl5000_2.enable();
+  sgtl5000_2.inputSelect(myInput);
+  sgtl5000_2.volume(0.5);
+
+
+  mixer1.gain(0, 0.25);
+  mixer1.gain(1, 0.25);
+  mixer1.gain(2, 0.25);
+  mixer1.gain(3, 0.25);
+  
   Serial.println("initialized sgt");
 }
 
@@ -82,7 +90,8 @@ void loop() {
   frec = SD.open("RECORD.RAW", FILE_WRITE);
   if (frec) {
     Serial.println("Beginning recording");
-    i2s_quad_in.begin();
+//    i2s_quad_in.begin();
+    queue1.begin();
   }
   else {
     Serial.println("could not begin recording");
@@ -94,18 +103,19 @@ void loop() {
   Serial.println("beginning recording");
   while(millis() - time_start < 5000) {
     if (queue1.available() >= 2) {
-      byte buffer[512];
+      Serial.println("Available");
+      byte buf[512];
       // Fetch 2 blocks from the audio library and copy
       // into a 512 byte buffer.  The Arduino SD library
       // is most efficient when full 512 byte sector size
       // writes are used.
-      memcpy(buffer, queue1.readBuffer(), 256);
+      memcpy(buf, queue1.readBuffer(), 256);
       queue1.freeBuffer();
-      memcpy(buffer+256, queue1.readBuffer(), 256);
+      memcpy(buf+256, queue1.readBuffer(), 256);
       queue1.freeBuffer();
       // write all 512 bytes to the SD card
       //elapsedMicros usec = 0;
-      frec.write(buffer, 512);
+      frec.write(buf, 512);
       // Uncomment these lines to see how long SD writes
       // are taking.  A pair of audio blocks arrives every
       // 5802 microseconds, so hopefully most of the writes
@@ -116,8 +126,8 @@ void loop() {
       // approximately 301700 us of audio, to allow time
       // for occasional high SD card latency, as long as
       // the average write time is under 5802 us.
-      //Serial.print("SD write, us=");
-      //Serial.println(usec);
+      Serial.print("SD write\n"); //, us=");
+//      Serial.println(usec);
     }
   }
 
@@ -134,9 +144,10 @@ void loop() {
   // play 5 second sample
   Serial.println("beginning playing");
   playRaw.play("RECORD.RAW");
-  while(playRaw.isPlaying()) {
-    Serial.println("playing raw file");
+  time_start = millis();
+  while(millis() - time_start < 5000) {
+  
   }
-  Serial.println("stopping playing");
+  Serial.println("stopping playing after 5 seconds");
   playRaw.stop();
 }
