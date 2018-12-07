@@ -20,13 +20,26 @@ typedef struct {
     double ** v;
 } mat_t, *mat;
 
+inline void matrix_show(mat m)
+{
+	for(int i = 0; i < m->m; i++) {
+		for (int j = 0; j < m->n; j++) {
+			Serial.printf(" %8.3f", m->v[i][j]);
+		}
+		Serial.printf("\n");
+	}
+	Serial.printf("\n");
+}
+
+
 inline mat qr_matrix_new(int m, int n)
 {
     mat x = (mat) malloc(sizeof(mat_t));
     x->v = (double **) malloc(sizeof(double*) * m);
-    x->v[0] = (double *) calloc(sizeof(double), m * n);
-    for (int i = 0; i < m; i++)
-        x->v[i] = x->v[0] + n * i;
+    for (int i = 0; i < m; i++) {
+        // use calloc to zero out starting area
+        x->v[i] = (double *) calloc(sizeof(double), n);
+    }
     x->m = m;
     x->n = n;
     return x;
@@ -65,10 +78,14 @@ inline mat qr_matrix_mul(mat x, mat y)
 {
     if (x->n != y->m) return 0;
     mat r = qr_matrix_new(x->m, y->n);
-    for (int i = 0; i < x->m; i++)
-        for (int j = 0; j < y->n; j++)
-            for (int k = 0; k < x->n; k++)
+    for (int i = 0; i < x->m; i++) {
+        for (int j = 0; j < y->n; j++) {
+            for (int k = 0; k < x->n; k++) {
+                if (j == 0) Serial.printf("%d, %d, %d\n", i, j, k);
                 r->v[i][j] += x->v[i][k] * y->v[k][j];
+            }
+        }
+    }
     return r;
 }
 
@@ -127,39 +144,58 @@ inline double* mcol(mat m, double *v, int c)
     return v;
 }
 
+
 inline void householder(mat m, mat *R, mat *Q)
 {
+    int debug = 0;
+
     mat q[m->m];
     mat z = m, z1;
     for (int k = 0; k < m->n && k < m->m - 1; k++) {
+        Serial.printf("K: %d (%d)\n", k, debug++);
         double e[m->m], x[m->m], a;
+        Serial.printf("K: %d (%d)\n", k, debug++);
         z1 = qr_matrix_minor(z, k);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         if (z != m) qr_matrix_delete(z);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         z = z1;
+        Serial.printf("K: %d (%d)\n", k, debug++);
 
         mcol(z, x, k);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         a = vnorm(x, m->m);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         if (m->v[k][k] > 0) a = -a;
 
+        Serial.printf("K: %d (%d)\n", k, debug++);
         for (int i = 0; i < m->m; i++)
             e[i] = (i == k) ? 1 : 0;
-
+        Serial.printf("K: %d (%d)\n", k, debug++);
         vmadd(x, e, a, e, m->m);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         vdiv(e, vnorm(e, m->m), e, m->m);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         q[k] = vmul(e, m->m);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         z1 = qr_matrix_mul(q[k], z);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         if (z != m) qr_matrix_delete(z);
+        Serial.printf("K: %d (%d)\n", k, debug++);
         z = z1;
     }
+    Serial.println("K is done");
     qr_matrix_delete(z);
     *Q = q[0];
     *R = qr_matrix_mul(q[0], m);
     for (int i = 1; i < m->n && i < m->m - 1; i++) {
+        Serial.printf("I: %d\n", i);
         z1 = qr_matrix_mul(q[i], *Q);
         if (i > 1) qr_matrix_delete(*Q);
         *Q = z1;
         qr_matrix_delete(q[i]);
     }
+    Serial.println("I is done");
     qr_matrix_delete(q[0]);
     z = qr_matrix_mul(*Q, m);
     qr_matrix_delete(*R);
@@ -168,3 +204,4 @@ inline void householder(mat m, mat *R, mat *Q)
 }
 
 #endif
+

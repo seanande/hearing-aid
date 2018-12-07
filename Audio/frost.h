@@ -33,7 +33,7 @@
 #define BLOCK_SIZE 128   /* teensyduino samples per block     */
                          /* equivalent to AUDIO_BLOCK_SAMPLES */
 
-#define TAPS 9     /* number of input taps */
+#define TAPS 0     /* number of input taps */
 
 #define DIAGONAL_LOAD_CONST 0.7
 
@@ -52,11 +52,11 @@ public:
 	AudioFrostBeamformer(void): AudioStream(CHANNELS, inputQueueArray) {
         input_matrix = qr_matrix_new(BLOCK_SIZE-TAPS, TAPS*CHANNELS);
 
-        init_arm_matrix(&input_matrix_cmsis, BLOCK_SIZE-TAPS, TAPS*CHANNELS);
-        init_arm_matrix(&output_matrix_cmsis, BLOCK_SIZE-TAPS, 1);
-        init_arm_matrix(&Q_cmsis, TAPS*CHANNELS, TAPS*CHANNELS);
-        init_arm_matrix(&weights_cmsis, TAPS*CHANNELS, 1);
-        init_arm_matrix(&steering_matrix, TAPS*CHANNELS, 1);
+        // init_arm_matrix(&input_matrix_cmsis, BLOCK_SIZE-TAPS, TAPS*CHANNELS);
+        // init_arm_matrix(&output_matrix_cmsis, BLOCK_SIZE-TAPS, 1);
+        // init_arm_matrix(&Q_cmsis, TAPS*CHANNELS, TAPS*CHANNELS);
+        // init_arm_matrix(&weights_cmsis, TAPS*CHANNELS, 1);
+        // init_arm_matrix(&steering_matrix, TAPS*CHANNELS, 1);
 
         int middle = TAPS*CHANNELS / 2;
         int low = middle - CHANNELS/2;
@@ -85,8 +85,7 @@ private:
 
 
     void calculate_weights(arm_matrix_instance_f32 *R, arm_matrix_instance_f32 *weights);
-    // a lot of the local variables would be private variables in idiomatic C++
-    // (I think)
 };
 
 #endif
+
