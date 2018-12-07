@@ -50,8 +50,12 @@ void create_input_matrix(mat input_matrix, audio_block_t* blocks[CHANNELS]) {
         for (int sample=TAPS-1; sample < BLOCK_SIZE; sample++) {
             double value = (double) b->data[sample];
             for (int tap=0; tap < TAPS; tap++) {
-                if (sample + tap > input_matrix->m) {
-                    /// don't try to write the values that "fall off" the top
+                // Serial.printf("Chan %d, Sample %d, Tap %d\n", chan, sample, tap);
+                if (sample + tap < input_matrix->m) {
+                    // don't try to write the values that "fall off" the bottom
+
+                    // Serial.printf("Sample+tap: %d, chan+tap*CHANNELS: %d\n", sample+tap, chan+tap*CHANNELS);
+                    // Serial.printf("Old value: %f\n", input_matrix->v[sample+tap][chan+tap*CHANNELS]);
                     input_matrix->v[sample+tap][chan+tap*CHANNELS] = value;
                 }
             }
@@ -90,32 +94,39 @@ void AudioFrostBeamformer::update(void) {
     // Calculate the QR decomposition
     // R is a mat_t
     // size SHOULD BE (TAPS * CHANNELS) square, but I haven't checked
+    // matrix_show(input_matrix);
+
     householder(input_matrix, &R, &Q);
 
-    // Apply diagonal loading
-    for (int i = 0; i < TAPS*CHANNELS; i++) {
-        R->v[i][i] = R->v[i][i] + DIAGONAL_LOAD_CONST;
-    }
+    // // Apply diagonal loading
+    // for (int i = 0; i < TAPS*CHANNELS; i++) {
+    //     R->v[i][i] = R->v[i][i] + DIAGONAL_LOAD_CONST;
+    // }
 
-    // R_cmsis is an arm_matrix_instance_f32
-    // size is equal to R (TAPS * CHANNELS square)
-    mat_t_to_arm_matrix(R, &R_cmsis);
+    // // R_cmsis is an arm_matrix_instance_f32
+    // // size is equal to R (TAPS * CHANNELS square)
+    // mat_t_to_arm_matrix(R, &R_cmsis);
 
-    // weights is an arm_matrix_instance_f32
-    // size is (TAPS * CHANNELS) rows x 1 column
-    calculate_weights(&R_cmsis, &weights_cmsis);
+    // // weights is an arm_matrix_instance_f32
+    // // size is (TAPS * CHANNELS) rows x 1 column
+    // calculate_weights(&R_cmsis, &weights_cmsis);
 
-    // input_matrix_cmsis is an arm_matrix_instance_f32
-    // size (BLOCK_SIZE-TAPS) rows x (TAPS * CHANNELS) cols
-    mat_t_to_arm_matrix(input_matrix, &input_matrix_cmsis);
+    // // input_matrix_cmsis is an arm_matrix_instance_f32
+    // // size (BLOCK_SIZE-TAPS) rows x (TAPS * CHANNELS) cols
+    // mat_t_to_arm_matrix(input_matrix, &input_matrix_cmsis);
 
-    // output_matrix_cmsis is an arm_matrix_instance_f32
-    // size (BLOCK_SIZE-TAPS) rows x 1 col
-    arm_mat_mult_f32(&input_matrix_cmsis, &weights_cmsis, &output_matrix_cmsis);
+    // // output_matrix_cmsis is an arm_matrix_instance_f32
+    // // size (BLOCK_SIZE-TAPS) rows x 1 col
+    // arm_mat_mult_f32(&input_matrix_cmsis, &weights_cmsis, &output_matrix_cmsis);
 
     audio_block_t *block_new = allocate();
     populate_output_block(&output_matrix_cmsis, block_new);
 
     transmit(block_new);
     release(block_new);
+
+    for (int i = 0; i < CHANNELS; i++) {
+        release(blocks[i]);
+    }
 }
+
